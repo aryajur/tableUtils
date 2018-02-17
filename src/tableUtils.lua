@@ -55,7 +55,11 @@ function t2s(t)
 				if type(k) == "number" then
 					result[#result + 1] = "["..tostring(k).."]="
 				else
-					result[#result + 1] = "["..[["]]..tostring(k)..[["]].."]="
+					if k:match([["]]) then
+						result[#result + 1] = "["..[[']]..tostring(k)..[[']].."]="
+					else
+						result[#result + 1] = "["..[["]]..tostring(k)..[["]].."]="
+					end
 				end
 				if type(v) == "table" then
 					-- Check if this is not a recursive table
@@ -136,7 +140,11 @@ function t2spp(t)
 				if type(k) == "number" then
 					result[#result + 1] = "["..tostring(k).."]="
 				else
-					result[#result + 1] = "["..[["]]..tostring(k)..[["]].."]="
+					if k:match([["]]) then
+						result[#result + 1] = "["..[[']]..tostring(k)..[[']].."]="
+					else
+						result[#result + 1] = "["..[["]]..tostring(k)..[["]].."]="
+					end
 				end
 				if type(v) == "table" then
 					-- Check if this is not a recursive table
@@ -288,8 +296,14 @@ end
 
 -- Function to convert a string containing a lua table to a lua table object
 function s2t(str)
+  local fileFunc
 	local safeenv = {}
-	local fileFunc = load("t="..str,"stringToTable","t",safeenv)
+  if loadstring and setfenv then
+    fileFunc = loadstring("t="..str)
+    setfenv(f,safeenv)
+  else
+    fileFunc = load("t="..str,"stringToTable","t",safeenv)
+  end
 	local err,msg = pcall(fileFunc)
 	if not err or not safeenv.t or type(safeenv.t) ~= "table" then
 		return nil,msg or type(safeenv.t) ~= "table" and "Not a table"
@@ -297,6 +311,22 @@ function s2t(str)
 	return safeenv.t
 end
 
+-- Function to convert a string containing a lua recursive table (from t2sr) to a lua table object
+function s2tr(str)
+  local fileFunc
+	local safeenv = {}
+  if loadstring and setfenv then
+    fileFunc = loadstring(str)
+    setfenv(f,safeenv)
+  else
+    fileFunc = load(str,"stringToTable","t",safeenv)
+  end
+	local err,msg = pcall(fileFunc)
+	if not err or not safeenv.t0 or type(safeenv.t0) ~= "table" then
+		return nil,msg or type(safeenv.t0) ~= "table" and "Not a table"
+	end
+	return safeenv.t0
+end
 
 function compareTables(t1,t2)
 	for k,v in pairs(t1) do
@@ -325,7 +355,7 @@ function copyTable(t1,t2,full)
 		if type(v) == "number" or type(v) == "string" or type(v) == "boolean" or type(v) == "function" or type(v) == "thread" or type(v) == "userdata" then
 			if type(k) == "table" and full then
 				local kp = {}
-				copyTables(k,kp,true)
+				copyTable(k,kp,true)
 				t2[kp] = v
 			else
 				t2[k] = v
@@ -335,12 +365,12 @@ function copyTable(t1,t2,full)
 			if full then 
 				if type(k) == "table" then
 					local kp = {}
-					copyTables(k,kp,true)
+					copyTable(k,kp,true)
 					t2[kp] = {}
-					copyTables(v,t2[kp],true)
+					copyTable(v,t2[kp],true)
 				else
 					t2[k] = {}
-					copyTables(v,t2[k],true)
+					copyTable(v,t2[k],true)
 				end
 			else
 				t2[k] = v
