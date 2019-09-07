@@ -16,7 +16,7 @@ else
 	_ENV = M		-- Lua 5.2+
 end
 
-_VERSION = "1.16.2.29"
+_VERSION = "1.19.09.06"
 
 
 -- Function to convert a table to a string
@@ -54,6 +54,8 @@ function t2s(t)
 				-- Handle the key and value here
 				if type(k) == "number" then
 					result[#result + 1] = "["..tostring(k).."]="
+				elseif type(k) == "table" then
+					result[#result + 1] = "["..t2s(k).."]="
 				else
 					if k:match([["]]) then
 						result[#result + 1] = "["..[[']]..tostring(k)..[[']].."]="
@@ -139,6 +141,8 @@ function t2spp(t)
 				-- Handle the key and value here
 				if type(k) == "number" then
 					result[#result + 1] = "["..tostring(k).."]="
+				elseif type(k) == "table" then
+					result[#result + 1] = "["..t2spp(k).."]="
 				else
 					if k:match([["]]) then
 						result[#result + 1] = "["..[[']]..tostring(k)..[[']].."]="
