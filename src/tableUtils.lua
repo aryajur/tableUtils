@@ -16,7 +16,7 @@ else
 	_ENV = M		-- Lua 5.2+
 end
 
-_VERSION = "1.16.2.29"
+_VERSION = "1.19.09.06"
 
 
 -- Function to convert a table to a string
@@ -54,6 +54,8 @@ function t2s(t)
 				-- Handle the key and value here
 				if type(k) == "number" then
 					result[#result + 1] = "["..tostring(k).."]="
+				elseif type(k) == "table" then
+					result[#result + 1] = "["..t2s(k).."]="
 				else
 					if k:match([["]]) then
 						result[#result + 1] = "["..[[']]..tostring(k)..[[']].."]="
@@ -139,6 +141,8 @@ function t2spp(t)
 				-- Handle the key and value here
 				if type(k) == "number" then
 					result[#result + 1] = "["..tostring(k).."]="
+				elseif type(k) == "table" then
+					result[#result + 1] = "["..t2spp(k).."]="
 				else
 					if k:match([["]]) then
 						result[#result + 1] = "["..[[']]..tostring(k)..[[']].."]="
@@ -378,28 +382,6 @@ function copyTable(t1,t2,full)
 		end
 	end
 	return t2
-end
-
--- Merge table t1 to t2 and remove duplicates 
--- if duplicates flage is false then remove all duplicates
--- returns result
-function mergeTable(t1,t2,duplicates)
-	res = {}
-	hash = {}
-	for _,v in pairs(t2) do
-		table.insert(t1, v) 
-	end	
-	if duplicates then
-		return t1
-	else
-		for _,v in pairs(t1) do
-			if (not hash[v]) then
-				res[#res+1] = v 
-				hash[v] = true
-			end
-		end
-		return res
-	end
 end
 
 function emptyTable(t)
