@@ -384,6 +384,28 @@ function copyTable(t1,t2,full)
 	return t2
 end
 
+-- Merge table t1 to t2 and remove duplicates 
+-- if duplicates flage is false then remove all duplicates
+-- returns result
+function mergeTable(t1,t2,duplicates)
+	res = {}
+	hash = {}
+	for _,v in pairs(t2) do
+		table.insert(t1, v) 
+	end	
+	if duplicates then
+		return t1
+	else
+		for _,v in pairs(t1) do
+			if (not hash[v]) then
+				res[#res+1] = v 
+				hash[v] = true
+			end
+		end
+		return res
+	end
+end
+
 function emptyTable(t)
 	for k,v in pairs(t) do
 		t[k] = nil
