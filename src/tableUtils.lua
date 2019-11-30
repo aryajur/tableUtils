@@ -384,26 +384,31 @@ function copyTable(t1,t2,full)
 	return t2
 end
 
--- Merge table t1 to t2 and remove duplicates 
--- if duplicates flage is false then remove all duplicates
--- returns result
-function mergeTable(t1,t2,duplicates)
-	res = {}
-	hash = {}
-	for _,v in pairs(t2) do
-		table.insert(t1, v) 
-	end	
-	if duplicates then
-		return t1
-	else
-		for _,v in pairs(t1) do
-			if (not hash[v]) then
-				res[#res+1] = v 
-				hash[v] = true
+-- Merge arrays t1 to t2
+-- if duplicates flag is false then duplicates are skipped
+-- if isduplicate is a given function then that is used to check whether the value of t1 and value of t2 are duplicate using a call like this:
+-- isduplicate(t1[i],t2[j])
+-- returns table t2
+function mergeArrays(t1,t2,duplicates,isduplicate)
+	isduplicate = isduplicate or function(v1,v2)
+		return v1==v2
+	end
+	for i = 1,#t1 do
+		local add = true
+		if not duplicate then
+			-- Check if this is a duplicate
+			for j = 1,#t2 do
+				if isduplicate(t1[i],t2[j]) then
+					add = false
+					break
+				end
 			end
 		end
-		return res
-	end
+		if add then
+			table.insert(t2, t1[i])
+		end
+	end	
+	return t2
 end
 
 function emptyTable(t)
