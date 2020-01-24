@@ -16,7 +16,7 @@ else
 	_ENV = M		-- Lua 5.2+
 end
 
-_VERSION = "1.19.09.06"
+_VERSION = "1.20.01.24"
 
 
 -- Function to convert a table to a string
@@ -390,7 +390,7 @@ end
 -- isduplicate(t1[i],t2[j])
 -- returns table t2
 function mergeArrays(t1,t2,duplicates,isduplicate)
-	isduplicate = isduplicate or function(v1,v2)
+	isduplicate = (type(isduplicate)=="function" and isduplicate) or function(v1,v2)
 		return v1==v2
 	end
 	for i = 1,#t1 do
@@ -411,9 +411,30 @@ function mergeArrays(t1,t2,duplicates,isduplicate)
 	return t2
 end
 
+-- Function to check whether value v is in array t1
+-- if equal is a given function 
+function inArray(t1,v,equal)
+	equal = (type(equal)=="function" and equal) or function(v1,v2)
+		return v1==v2
+	end
+	for i = 1,#t1 do
+		if equal(t1[i],v) then
+			return i		-- Value v found in t1 at ith location
+		end
+	end
+	return false	-- Value v not in t1
+end
+
 function emptyTable(t)
 	for k,v in pairs(t) do
 		t[k] = nil
+	end
+	return true
+end
+
+function emptyArray(t)
+	for i = 1,#t do
+		t[i] = nil
 	end
 	return true
 end
