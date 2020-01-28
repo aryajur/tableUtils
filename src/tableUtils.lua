@@ -395,7 +395,7 @@ function mergeArrays(t1,t2,duplicates,isduplicate)
 	end
 	for i = 1,#t1 do
 		local add = true
-		if not duplicate then
+		if not duplicates then
 			-- Check if this is a duplicate
 			for j = 1,#t2 do
 				if isduplicate(t1[i],t2[j]) then
