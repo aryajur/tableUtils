@@ -25,3 +25,10 @@ print(tu.t2spp({
 			x = {},
 			[{me=true}]="test"
 		}))
+
+print("Now table with function and boolean as keys")
+print(tu.t2sr({
+			[true] = 1,
+			[false] = 2,
+			[function() print("hello") end] = 3
+		}))

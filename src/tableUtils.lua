@@ -16,7 +16,7 @@ else
 	_ENV = M		-- Lua 5.2+
 end
 
-_VERSION = "1.20.01.24"
+_VERSION = "1.20.03.04"
 
 
 -- Function to convert a table to a string
@@ -35,9 +35,9 @@ function t2s(t)
 		while true do
 			local k,v = rL[rL.cL]._f(rL[rL.cL]._s,rL[rL.cL]._var)
 			rL[rL.cL]._var = k
-			if not k and rL.cL == 1 then
+			if k==nil and rL.cL == 1 then
 				break
-			elseif not k then
+			elseif k==nil then
 				-- go up in recursion level
 				-- If condition for pretty printing
 				-- if result[#result]:sub(-1,-1) == "," then
@@ -52,15 +52,16 @@ function t2s(t)
 				--rL[rL.cL].str = rL[rL.cL].str..",\n"..string.rep("\t",levels+1)
 			else
 				-- Handle the key and value here
-				if type(k) == "number" then
+				if type(k) == "number" or type(k) == "boolean" then
 					result[#result + 1] = "["..tostring(k).."]="
 				elseif type(k) == "table" then
 					result[#result + 1] = "["..t2s(k).."]="
 				else
-					if k:match([["]]) then
-						result[#result + 1] = "["..[[']]..tostring(k)..[[']].."]="
+					local kp = tostring(k)
+					if kp:match([["]]) then
+						result[#result + 1] = "["..[[']]..kp..[[']].."]="
 					else
-						result[#result + 1] = "["..[["]]..tostring(k)..[["]].."]="
+						result[#result + 1] = "["..[["]]..kp..[["]].."]="
 					end
 				end
 				if type(v) == "table" then
@@ -122,9 +123,9 @@ function t2spp(t)
 		while true do
 			local k,v = rL[rL.cL]._f(rL[rL.cL]._s,rL[rL.cL]._var)
 			rL[rL.cL]._var = k
-			if not k and rL.cL == 1 then
+			if k == nil and rL.cL == 1 then
 				break
-			elseif not k then
+			elseif k == nil then
 				-- go up in recursion level
 				-- If condition for pretty printing
 				if result[#result]:sub(-1,-1) == "," then
@@ -139,15 +140,16 @@ function t2spp(t)
 				result[#result + 1] = "},\n"..string.rep("\t",levels+1)		-- for pretty printing
 			else
 				-- Handle the key and value here
-				if type(k) == "number" then
+				if type(k) == "number" or type(k) == "boolean" then
 					result[#result + 1] = "["..tostring(k).."]="
 				elseif type(k) == "table" then
 					result[#result + 1] = "["..t2spp(k).."]="
 				else
-					if k:match([["]]) then
-						result[#result + 1] = "["..[[']]..tostring(k)..[[']].."]="
+					local kp = tostring(k)
+					if kp:match([["]]) then
+						result[#result + 1] = "["..[[']]..kp..[[']].."]="
 					else
-						result[#result + 1] = "["..[["]]..tostring(k)..[["]].."]="
+						result[#result + 1] = "["..[["]]..kp..[["]].."]="
 					end
 				end
 				if type(v) == "table" then
@@ -195,6 +197,18 @@ end
 
 -- Function to convert a table to string following the recursive tables also
 -- Metatables are not followed
+-- Lua has 8 basic types:
+-- 1. nil
+-- 2. boolean
+-- 3. number
+-- 4. string
+-- 5. function
+-- 6. userdata
+-- 7. thread
+-- 8. table
+-- The table to string and string to table conversion will maintain the following types:
+-- nil, boolean, number, string, table
+-- The other types get their tostring values stored and end up as a string ID.
 function t2sr(t)
 	if type(t) ~= 'table' then return nil, 'Expected table parameter' end 
 	local rL = {cL = 1}	-- Table to track recursion into nested tables (cL = current recursion level)
@@ -203,23 +217,24 @@ function t2sr(t)
 	local latestTab = 0
 	local result = {}
 	do
-		rL[rL.cL]._f,rL[rL.cL]._s,rL[rL.cL]._var = pairs(t)
+		rL[rL.cL]._f,rL[rL.cL]._s,rL[rL.cL]._var = pairs(t)	-- Start the key value traveral for the table and store the iterator returns
 		result[#result + 1] = 't0={}'	-- t0 would be the main table
 		--rL[rL.cL].str = 't0={}'
-		rL[rL.cL].t = t
+		rL[rL.cL].t = t		-- Table to stringify at this level
 		rL[rL.cL].tabIndex = 0
 		tabIndex[t] = rL[rL.cL].tabIndex
 		while true do
 			local key
-			local k,v = rL[rL.cL]._f(rL[rL.cL]._s,rL[rL.cL]._var)
+			local k,v = rL[rL.cL]._f(rL[rL.cL]._s,rL[rL.cL]._var)	-- Get the 1st key and value from the iterator in k,v
 			rL[rL.cL]._var = k
-			if not k and rL.cL == 1 then
-				break
-			elseif not k then
+			if k == nil and rL.cL == 1 then
+				break	-- All done!
+			elseif k == nil then
 				-- go up in recursion level
 				--rL[rL.cL-1].str = rL[rL.cL-1].str..'\\n'..rL[rL.cL].str
 				rL.cL = rL.cL - 1
 				if rL[rL.cL].vNotDone then
+					-- We were converting a key to string since that was a table. Now do the same for the value at this level
 					key = 't'..rL[rL.cL].tabIndex..'[t'..tostring(rL[rL.cL+1].tabIndex)..']'
 					--rL[rL.cL].str = rL[rL.cL].str..'\\n'..key..'='
 					result[#result + 1] = "\n"..key.."="
@@ -228,15 +243,15 @@ function t2sr(t)
 				rL[rL.cL+1] = nil
 			else
 				-- Handle the key and value here
-				if type(k) == 'number' then
+				if type(k) == 'number' or type(k) == 'boolean' then
 					key = 't'..rL[rL.cL].tabIndex..'['..tostring(k)..']'
 					--rL[rL.cL].str = rL[rL.cL].str..'\\n'..key..'='
 					result[#result + 1] = "\n"..key.."="
 				elseif type(k) == 'string' then
 					key = 't'..rL[rL.cL].tabIndex..'.'..tostring(k)
 					--rL[rL.cL].str = rL[rL.cL].str..'\\n'..key..'='
-					result[#result + 1] = "\n"..key.."="					
-				else
+					result[#result + 1] = "\n"..key.."="
+				elseif type(k) == 'table' then
 					-- Table key
 					-- Check if the table already exists
 					if tabIndex[k] then
@@ -257,6 +272,11 @@ function t2sr(t)
 						--rL[rL.cL].str = ''
 						tabIndex[k] = rL[rL.cL].tabIndex
 					end		-- if tabIndex[k] then ends
+				else
+					-- k is of the type function, userdata or thread
+					key = 't'..rL[rL.cL].tabIndex..'.'..tostring(k)
+					--rL[rL.cL].str = rL[rL.cL].str..'\\n'..key..'='
+					result[#result + 1] = "\n"..key.."="					
 				end		-- if type(k)ends
 			end		-- if not k and rL.cL == 1 then ends
 			if key then
