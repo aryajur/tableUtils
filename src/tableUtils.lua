@@ -421,7 +421,7 @@ end
 
 -- Copy table t1 to t2 overwriting any common keys
 -- If full is true then copy is recursively going down into nested tables
--- returns t2 
+-- returns t2 and mapping of source to destination and destination to source tables
 function copyTable(t1,t2,full,map)
 	map = map or {
 			s2d={
@@ -500,6 +500,7 @@ function diffTable(t1,t2,map,tabDone)
 		}
 	tabDone = tabDone or {[t2]=true}	-- To keep track of recursive tables
 	local diff = {}
+	local diffDirty 
 	local keyTabs = {}
 	-- To convert t1 to t2 let us iterate over all elements of t2 first
 	for k,v in pairs(t2) do
@@ -513,18 +514,19 @@ function diffTable(t1,t2,map,tabDone)
 					-- Get diff of kt1 and k
 					if not tabDone[k] then
 						diff[kt1] = diffTable(kt1,k,map,tabDone)
+						diffDirty = diffDirty or diff[kt1] and true
 					end
 				end
 				keyTabs[kt1] = k
 				if t1[kt1] == nil or t1[kt1] ~= v then
-					diff[t1] = diff[t1] or {}
-					diff[t1][kt1] = v 
+					diff[kt1] = v 
+					diffDirty = true
 				end
 			else	-- if type(k) == "table" then else
 				-- Neither v is a table not k is a table
 				if t1[k] ~= v then
-					diff[t1] = diff[t1] or {}
-					diff[t1][k] = v
+					diff[k] = v
+					diffDirty = true
 				end				
 			end		-- if type(k) == "table" then ends
 		else	--if type(v) ~= "table" then	
@@ -536,6 +538,7 @@ function diffTable(t1,t2,map,tabDone)
 					kt1 = map[k]
 					if not tabDone[k] then
 						diff[kt1] = diffTable(kt1,k,map,tabDone)
+						diffDirty = diffDirty or diff[kt1] and true
 					end
 				end
 				keyTabs[kt1] = k
@@ -544,11 +547,12 @@ function diffTable(t1,t2,map,tabDone)
 					vt1 = map[v]
 					if not tabDone[v] then
 						diff[vt1] = diffTable(vt1,v,map,tabDone)
+						diffDirty = diffDirty or diff[vt1] and true
 					end
 				end
 				if t1[kt1] == nil or t1[kt1] ~= vt1 then
-					diff[t1] = diff[t1] or {}
-					diff[t1][kt1] = vt1
+					diff[kt1] = vt1
+					diffDirty = true
 				end
 			else
 				local vt1 = v
@@ -557,11 +561,12 @@ function diffTable(t1,t2,map,tabDone)
 					-- Get the diff of vt1 and v
 					if not tabDone[v] then
 						diff[vt1] = diffTable(vt1,v,map,tabDone)
+						diffDirty = diffDirty or diff[vt1] and true
 					end
 				end
 				if t1[k] == nil or t1[k] ~= vt1 then
-					diff[t1] = diff[t1] or {}
-					diff[t1][k] = vt1
+					diff[k] = vt1
+					diffDirty = true
 				end
 			end
 		end	--if type(v) ~= "table" then ends
@@ -570,19 +575,19 @@ function diffTable(t1,t2,map,tabDone)
 	for k,v in pairs(t1) do
 		if type(k) ~= "table" then
 			if t2[k] == nil then
-				diff[t1] = diff[t1] or {}
-				diff[t1][k] = setnil
+				diff[k] = setnil
+				diffDirty = true
 			end
 		else
 			-- k is a table 
 			-- get the t2 counterpart if it was found
 			if not keyTabs[k] then
-				diff[t1] = diff[t1] or {}
-				diff[t1][k] = setnil
+				diff[k] = setnil
+				diffDirty = true
 			end
 		end
 	end
-	return diff
+	return diffDirty and diff
 end
 
 -- Merge arrays t1 to t2
