@@ -51,6 +51,9 @@ print(tu.t2sr({
 		}))
 print("Test diffTable and patch functions now")
 
+tk = {
+	me = true
+}
 t = {
 	[1]="Hello",
 	[2]="World",
@@ -61,7 +64,7 @@ t = {
 		},
 		status = true
 	},
-	[{me=true}]="test",
+	[tk]="test",
 	[{me=false}]="test"
 }
 tcopy,map = tu.copyTable(t,{},true)
@@ -69,6 +72,21 @@ tcopy,map = tu.copyTable(t,{},true)
 --tcopy.x.status = false
 --tcopy.x = nil
 t.x = nil
-diff = tu.diffTable(tcopy,t,map.s2d)
-print("The diff t-tcopy is:")
+tk.me = 23
+print("---------------------------------------------")
+print("Original table copy is:")
+print(tu.t2spp(tcopy))
+print("---------------------------------------------")
+print("The modified table is:")
+print(tu.t2spp(t))
+print("---------------------------------------------")
+diff = tu.diffTable(t,tcopy,map.d2s)
+print("The diff tcopy-t is:")
 print(tu.t2spp(diff))
+print("---------------------------------------------")
+print("The patched table is:")
+-- Now patch and compare
+tpatch = tu.patch(t,diff)
+print(tu.t2spp(tpatch))
+print("---------------------------------------------")
+print("Compare tpatch and tcopy:",tu.compareTables(tpatch,tcopy))

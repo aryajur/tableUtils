@@ -16,7 +16,7 @@ else
 	_ENV = M		-- Lua 5.2+
 end
 
-_VERSION = "1.20.03.04"
+_VERSION = "1.20.04.18"
 
 
 -- Function to convert a table to a string
@@ -473,20 +473,27 @@ local setnil = {}	-- Marker table for diff to set nil
 
 -- Function to patch table t with the diff provided to convert it to the next table
 -- diff is a structure as returned by the diffTable function
-function patch(t,diff,tabDone)
-	local tabDone = tabDone or {[t]=true}
+function patch(t,diff)
+	local tabDone = {[t]=true}
 	for k,v in pairs(diff[t]) do
-		t[k] = v
-	end
-	for k,v in pairs(diff[t]) do
-		if type(k) == "table" and not tabDone[k] then
-			patch(k,diff,tabDone)
-		end
-		if type(v) == "table" and not tabDone[k] then
-			patch(v,diff,tabDone)
+		if v == setnil then
+			t[k] = nil
+		else
+			t[k] = v
 		end
 	end
-	return true
+	for k,v in pairs(diff) do
+		if k ~= t and type(k) == "table" and not tabDone[k] then
+			for k1,v1 in pairs(v) do
+				if v1 == setnil then
+					k[k1] = nil
+				else
+					k[k1] = v1
+				end
+			end
+		end
+	end
+	return t
 end
 
 -- Function to return the diff patch of t2-t1. The patch when applied to t1 will make it equal in value to t2 such that compareTables will return true
@@ -494,13 +501,14 @@ end
 -- map is the table that can provide mapping of any table in t2 to a table in t1 i.e. they can be considered the referring to the same table i.e. that table in t2 after the patch operation would be the same in value as the table in t1 that the map defines but its address will still be the address it was in t2. If there is no mapping for the table found then the same table is looked up at that level to match. But if there is a same table then the diff for that table is obviously 0
 
 -- NOTE: a diff object is temporary and cannot be saved for a later session. To save it is better to serialize and save t1 and t2 using t2s functions
-function diffTable(t1,t2,map,tabDone)
+function diffTable(t1,t2,map,tabDone,diff)
 	map = map or {
 			[t2]=t1
 		}
 	tabDone = tabDone or {[t2]=true}	-- To keep track of recursive tables
-	local diff = {}
-	local diffDirty 
+	diff = diff or {}
+	local diffDirty
+	diff[t1] = diff[t1] or {}
 	local keyTabs = {}
 	-- To convert t1 to t2 let us iterate over all elements of t2 first
 	for k,v in pairs(t2) do
@@ -513,19 +521,19 @@ function diffTable(t1,t2,map,tabDone)
 					kt1 = map[k]
 					-- Get diff of kt1 and k
 					if not tabDone[k] then
-						diff[kt1] = diffTable(kt1,k,map,tabDone)
-						diffDirty = diffDirty or diff[kt1] and true
+						diffTable(kt1,k,map,tabDone,diff)
+						diffDirty = diffDirty or diff[kt1]
 					end
 				end
 				keyTabs[kt1] = k
 				if t1[kt1] == nil or t1[kt1] ~= v then
-					diff[kt1] = v 
+					diff[t1][kt1] = v 
 					diffDirty = true
 				end
 			else	-- if type(k) == "table" then else
 				-- Neither v is a table not k is a table
 				if t1[k] ~= v then
-					diff[k] = v
+					diff[t1][k] = v
 					diffDirty = true
 				end				
 			end		-- if type(k) == "table" then ends
@@ -537,8 +545,8 @@ function diffTable(t1,t2,map,tabDone)
 				if map[k] then
 					kt1 = map[k]
 					if not tabDone[k] then
-						diff[kt1] = diffTable(kt1,k,map,tabDone)
-						diffDirty = diffDirty or diff[kt1] and true
+						diffTable(kt1,k,map,tabDone,diff)
+						diffDirty = diffDirty or diff[kt1]
 					end
 				end
 				keyTabs[kt1] = k
@@ -546,12 +554,12 @@ function diffTable(t1,t2,map,tabDone)
 				if map[v] then
 					vt1 = map[v]
 					if not tabDone[v] then
-						diff[vt1] = diffTable(vt1,v,map,tabDone)
-						diffDirty = diffDirty or diff[vt1] and true
+						diffTable(vt1,v,map,tabDone,diff)
+						diffDirty = diffDirty or diff[vt1]
 					end
 				end
 				if t1[kt1] == nil or t1[kt1] ~= vt1 then
-					diff[kt1] = vt1
+					diff[t1][kt1] = vt1
 					diffDirty = true
 				end
 			else
@@ -560,12 +568,12 @@ function diffTable(t1,t2,map,tabDone)
 					vt1 = map[v]
 					-- Get the diff of vt1 and v
 					if not tabDone[v] then
-						diff[vt1] = diffTable(vt1,v,map,tabDone)
-						diffDirty = diffDirty or diff[vt1] and true
+						diffTable(vt1,v,map,tabDone,diff)
+						diffDirty = diffDirty or diff[vt1]
 					end
 				end
 				if t1[k] == nil or t1[k] ~= vt1 then
-					diff[k] = vt1
+					diff[t1][k] = vt1
 					diffDirty = true
 				end
 			end
@@ -575,18 +583,19 @@ function diffTable(t1,t2,map,tabDone)
 	for k,v in pairs(t1) do
 		if type(k) ~= "table" then
 			if t2[k] == nil then
-				diff[k] = setnil
+				diff[t1][k] = setnil
 				diffDirty = true
 			end
 		else
 			-- k is a table 
 			-- get the t2 counterpart if it was found
 			if not keyTabs[k] then
-				diff[k] = setnil
+				diff[t1][k] = setnil
 				diffDirty = true
 			end
 		end
 	end
+	if not diffDirty then diff[t1] = nil end
 	return diffDirty and diff
 end
 
