@@ -16,7 +16,7 @@ else
 	_ENV = M		-- Lua 5.2+
 end
 
-_VERSION = "1.20.04.18"
+_VERSION = "1.20.04.23"
 
 
 -- Function to convert a table to a string
@@ -422,7 +422,7 @@ end
 -- Copy table t1 to t2 overwriting any common keys
 -- If full is true then copy is recursively going down into nested tables
 -- returns t2 and mapping of source to destination and destination to source tables
-function copyTable(t1,t2,full,map)
+function copyTable(t1,t2,full,map,tabDone)
 	map = map or {
 			s2d={
 				[t1]=t2
@@ -432,11 +432,13 @@ function copyTable(t1,t2,full,map)
 			}
 		}	-- s2d contains mapping of source table tables to destination tables
 			-- d2s contains mapping of destination table tables to source tables
+	tabDone = tabDone or {[t1]=t2}	-- To keep track of recursive tables
 	for k,v in pairs(t1) do
 		if type(v) == "number" or type(v) == "string" or type(v) == "boolean" or type(v) == "function" or type(v) == "thread" or type(v) == "userdata" then
-			if type(k) == "table" and full then
+			if type(k) == "table" and full and not tabDone[k] then
 				local kp = {}
-				copyTable(k,kp,true,map)
+				tabDone[k] = kp
+				copyTable(k,kp,true,map,tabDone)
 				map.d2s[kp] = k
 				map.s2d[k] = kp
 				t2[kp] = v
@@ -446,18 +448,29 @@ function copyTable(t1,t2,full,map)
 		else
 			-- type(v) = ="table"
 			if full then 
-				if type(k) == "table" then
+				if type(k) == "table" and not tabDone[k] then
 					local kp = {}
-					copyTable(k,kp,true,map)
+					tabDone[k] = kp
+					copyTable(k,kp,true,map,tabDone)
 					map.d2s[kp] = k
 					map.s2d[k] = kp
 					t2[kp] = {}
-					copyTable(v,t2[kp],true,map)
+					if not tabDone[v] then
+						tabDone[v] = t2[kp]
+						copyTable(v,t2[kp],true,map,tabDone)
+					else
+						t2[kp] = tabDone[v]
+					end
 					map.d2s[t2[kp]] = v
 					map.s2d[v] = t2[kp]
 				else
 					t2[k] = {}
-					copyTable(v,t2[k],true,map)
+					if not tabDone[v] then
+						tabDone[v] = t2[k]
+						copyTable(v,t2[k],true,map,tabDone)
+					else
+						t2[k] = tabDone[v]
+					end
 					map.d2s[t2[k]] = v
 					map.s2d[v] = t2[k]
 				end
@@ -521,6 +534,7 @@ function diffTable(t1,t2,map,tabDone,diff)
 					kt1 = map[k]
 					-- Get diff of kt1 and k
 					if not tabDone[k] then
+						tabDone[k]= true
 						diffTable(kt1,k,map,tabDone,diff)
 						diffDirty = diffDirty or diff[kt1]
 					end
@@ -545,6 +559,7 @@ function diffTable(t1,t2,map,tabDone,diff)
 				if map[k] then
 					kt1 = map[k]
 					if not tabDone[k] then
+						tabDone[k] = true
 						diffTable(kt1,k,map,tabDone,diff)
 						diffDirty = diffDirty or diff[kt1]
 					end
@@ -554,6 +569,7 @@ function diffTable(t1,t2,map,tabDone,diff)
 				if map[v] then
 					vt1 = map[v]
 					if not tabDone[v] then
+						tabDone[v] = true
 						diffTable(vt1,v,map,tabDone,diff)
 						diffDirty = diffDirty or diff[vt1]
 					end
@@ -568,6 +584,7 @@ function diffTable(t1,t2,map,tabDone,diff)
 					vt1 = map[v]
 					-- Get the diff of vt1 and v
 					if not tabDone[v] then
+						tabDone[v] = true
 						diffTable(vt1,v,map,tabDone,diff)
 						diffDirty = diffDirty or diff[vt1]
 					end

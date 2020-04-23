@@ -90,3 +90,17 @@ tpatch = tu.patch(t,diff)
 print(tu.t2spp(tpatch))
 print("---------------------------------------------")
 print("Compare tpatch and tcopy:",tu.compareTables(tpatch,tcopy))
+
+-- Try copyTable with recursive tables
+t = {
+	One = 1,
+	Two = {
+		TwoOne = 21
+	}
+}
+t.Two.parent = t.Two
+tc = tu.copyTable(t,{},true)
+print("Recursive table is: ",tc.Two)
+print(tu.t2spp(tc))
+print("Recursion in copy is maintained:",tc.Two.parent == tc.Two)
+	
