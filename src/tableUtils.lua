@@ -16,7 +16,7 @@ else
 	_ENV = M		-- Lua 5.2+
 end
 
-_VERSION = "1.20.04.23"
+_VERSION = "1.20.05.24"
 
 
 -- Function to convert a table to a string
@@ -352,13 +352,147 @@ function s2tr(str)
 	return safeenv.t0
 end
 
+-- Merge arrays t1 to t2
+-- if duplicates flag is false then duplicates are skipped
+-- if isduplicate is a given function then that is used to check whether the value of t1 and value of t2 are duplicate using a call like this:
+-- isduplicate(t1[i],t2[j])
+-- returns table t2
+function mergeArrays(t1,t2,duplicates,isduplicate)
+	isduplicate = (type(isduplicate)=="function" and isduplicate) or function(v1,v2)
+		return v1==v2
+	end
+	for i = 1,#t1 do
+		local add = true
+		if not duplicates then
+			-- Check if this is a duplicate
+			for j = 1,#t2 do
+				if isduplicate(t1[i],t2[j]) then
+					add = false
+					break
+				end
+			end
+		end
+		if add then
+			table.insert(t2, t1[i])
+		end
+	end	
+	return t2
+end
 
--- Function to compare 2 tables. Returns nil if they are not equal in value
+-- Function to check whether value v is in array t1
+-- if equal is a given function then equal is called with a value from the table and the value to compare. If it returns true then the values are considered equal
+function inArray(t1,v,equal)
+	equal = (type(equal)=="function" and equal) or function(v1,v2)
+		return v1==v2
+	end
+	for i = 1,#t1 do
+		if equal(t1[i],v) then
+			return i		-- Value v found in t1 at ith location
+		end
+	end
+	return false	-- Value v not in t1
+end
+
+function emptyTable(t)
+	for k,v in pairs(t) do
+		t[k] = nil
+	end
+	return true
+end
+
+function emptyArray(t)
+	for i = 1,#t do
+		t[i] = nil
+	end
+	return true
+end
+
+-- Copy table t1 to t2 overwriting any common keys
+-- If full is true then copy is recursively going down into nested tables
+-- returns t2 and mapping of source to destination and destination to source tables
+function copyTable(t1,t2,full,map,tabDone)
+	map = map or {
+			s2d={
+				[t1]=t2
+			},
+			d2s={
+				[t2]=t1
+			}
+		}	-- s2d contains mapping of source table tables to destination tables
+			-- d2s contains mapping of destination table tables to source tables
+	tabDone = tabDone or {[t1]=t2}	-- To keep track of recursive tables
+	for k,v in pairs(t1) do
+		if type(v) == "number" or type(v) == "string" or type(v) == "boolean" or type(v) == "function" or type(v) == "thread" or type(v) == "userdata" then
+			if type(k) == "table" then
+				if full then
+					local kp
+					if not tabDone[k] then
+						kp = {}
+						tabDone[k] = kp
+						copyTable(k,kp,true,map,tabDone)
+						map.d2s[kp] = k
+						map.s2d[k] = kp
+					else
+						kp = tabDone[k]
+					end
+					t2[kp] = v
+				else
+					t2[k] = v
+				end
+			else
+				t2[k] = v
+			end
+		else
+			-- type(v) = ="table"
+			if full then 
+				if type(k) == "table" then
+					local kp
+					if not tabDone[k] then
+						kp = {}
+						tabDone[k] = kp
+						copyTable(k,kp,true,map,tabDone)
+						map.d2s[kp] = k
+						map.s2d[k] = kp
+					else
+						kp = tabDone[k]
+					end
+					t2[kp] = {}
+					if not tabDone[v] then
+						tabDone[v] = t2[kp]
+						copyTable(v,t2[kp],true,map,tabDone)
+						map.d2s[t2[kp]] = v
+						map.s2d[v] = t2[kp]
+					else
+						t2[kp] = tabDone[v]
+					end
+				else
+					t2[k] = {}
+					if not tabDone[v] then
+						tabDone[v] = t2[k]
+						copyTable(v,t2[k],true,map,tabDone)
+						map.d2s[t2[k]] = v
+						map.s2d[v] = t2[k]
+					else
+						t2[k] = tabDone[v]
+					end
+				end
+			else
+				t2[k] = v
+			end
+		end
+	end
+	return t2,map
+end
+
+-- Function to compare 2 tables. Returns nil if they are not equal in value or do not have the same recursive link structure
 -- Recursive tables are allowed
-function compareTables(t1,t2,traversed)
-	traversed = traversed or {}
-	traversed[t1] = true
-	local donet2 = {}	-- To mark wchich keys are taken	
+function compareTables(t1,t2,traversing)
+	if not t2 then
+		return false
+	end
+	traversing = traversing or {}
+	traversing[t1] = t2	-- t1 is being traversed to match it to t2
+	local donet2 = {}	-- To mark which keys are taken	
 	for k,v in pairs(t1) do
 		--print(k,v)
 		if type(v) == "number" or type(v) == "string" or type(v) == "boolean" or type(v) == "function" or type(v) == "thread" or type(v) == "userdata" then
@@ -367,7 +501,20 @@ function compareTables(t1,t2,traversed)
 				local found
 				for k2,v2 in pairs(t2) do
 					if not donet2[k2] and type(k2) == "table" then
-						if (traversed[k2] or compareTables(k,k2,traversed)) and v2 == v then
+						-- Check if k2 is already traversed or is being traversed
+						local traversal
+						for k3,v3 in pairs(traversing) do
+							if v3 == k2 then
+								traversal = k3
+								break
+							end
+						end
+						if not traversal then
+							if compareTables(k,k2,traversing) and v2 == v then
+								found = k2
+								break
+							end
+						elseif traversal==k and v2 == v then
 							found = k2
 							break
 						end
@@ -391,7 +538,20 @@ function compareTables(t1,t2,traversed)
 				local found
 				for k2,v2 in pairs(t2) do
 					if not donet2[k2] and type(k2) == "table" then
-						if (traversed[k2] or compareTables(k,k2,traversed)) and (traversed[v2] or compareTables(v,v2,traversed)) then
+						-- Check if k2 is already traversed or is being traversed
+						local traversal
+						for k3,v3 in pairs(traversing) do
+							if v3 == k2 then
+								traversal = k3
+								break
+							end
+						end
+						if not traversal then
+							if compareTables(k,k2,traversing) and v2 == v then
+								found = k2
+								break
+							end
+						elseif traversal==k and v2 == v then
 							found = k2
 							break
 						end
@@ -402,8 +562,16 @@ function compareTables(t1,t2,traversed)
 				end
 				donet2[found] = true
 			else
-				if not (traversed[t2[k]] or compareTables(v,t2[k],traversed)) then
-					return false
+				-- k is not a table
+				if not traversing[v] then
+					if not compareTables(v,t2[k],traversing) then
+						return false
+					end
+				else
+					-- This is a recursive table so it should match
+					if traversing[v] ~= t2[k] then
+						return false
+					end
 				end
 				donet2[k] = true
 			end
@@ -415,71 +583,8 @@ function compareTables(t1,t2,traversed)
 			return false	-- extra stuff in t2
 		end
 	end
+	traversing[t1] = nil
 	return true
-end
-
-
--- Copy table t1 to t2 overwriting any common keys
--- If full is true then copy is recursively going down into nested tables
--- returns t2 and mapping of source to destination and destination to source tables
-function copyTable(t1,t2,full,map,tabDone)
-	map = map or {
-			s2d={
-				[t1]=t2
-			},
-			d2s={
-				[t2]=t1
-			}
-		}	-- s2d contains mapping of source table tables to destination tables
-			-- d2s contains mapping of destination table tables to source tables
-	tabDone = tabDone or {[t1]=t2}	-- To keep track of recursive tables
-	for k,v in pairs(t1) do
-		if type(v) == "number" or type(v) == "string" or type(v) == "boolean" or type(v) == "function" or type(v) == "thread" or type(v) == "userdata" then
-			if type(k) == "table" and full and not tabDone[k] then
-				local kp = {}
-				tabDone[k] = kp
-				copyTable(k,kp,true,map,tabDone)
-				map.d2s[kp] = k
-				map.s2d[k] = kp
-				t2[kp] = v
-			else
-				t2[k] = v
-			end
-		else
-			-- type(v) = ="table"
-			if full then 
-				if type(k) == "table" and not tabDone[k] then
-					local kp = {}
-					tabDone[k] = kp
-					copyTable(k,kp,true,map,tabDone)
-					map.d2s[kp] = k
-					map.s2d[k] = kp
-					t2[kp] = {}
-					if not tabDone[v] then
-						tabDone[v] = t2[kp]
-						copyTable(v,t2[kp],true,map,tabDone)
-					else
-						t2[kp] = tabDone[v]
-					end
-					map.d2s[t2[kp]] = v
-					map.s2d[v] = t2[kp]
-				else
-					t2[k] = {}
-					if not tabDone[v] then
-						tabDone[v] = t2[k]
-						copyTable(v,t2[k],true,map,tabDone)
-					else
-						t2[k] = tabDone[v]
-					end
-					map.d2s[t2[k]] = v
-					map.s2d[v] = t2[k]
-				end
-			else
-				t2[k] = v
-			end
-		end
-	end
-	return t2,map
 end
 
 local setnil = {}	-- Marker table for diff to set nil
@@ -616,57 +721,3 @@ function diffTable(t1,t2,map,tabDone,diff)
 	return diffDirty and diff
 end
 
--- Merge arrays t1 to t2
--- if duplicates flag is false then duplicates are skipped
--- if isduplicate is a given function then that is used to check whether the value of t1 and value of t2 are duplicate using a call like this:
--- isduplicate(t1[i],t2[j])
--- returns table t2
-function mergeArrays(t1,t2,duplicates,isduplicate)
-	isduplicate = (type(isduplicate)=="function" and isduplicate) or function(v1,v2)
-		return v1==v2
-	end
-	for i = 1,#t1 do
-		local add = true
-		if not duplicates then
-			-- Check if this is a duplicate
-			for j = 1,#t2 do
-				if isduplicate(t1[i],t2[j]) then
-					add = false
-					break
-				end
-			end
-		end
-		if add then
-			table.insert(t2, t1[i])
-		end
-	end	
-	return t2
-end
-
--- Function to check whether value v is in array t1
--- if equal is a given function 
-function inArray(t1,v,equal)
-	equal = (type(equal)=="function" and equal) or function(v1,v2)
-		return v1==v2
-	end
-	for i = 1,#t1 do
-		if equal(t1[i],v) then
-			return i		-- Value v found in t1 at ith location
-		end
-	end
-	return false	-- Value v not in t1
-end
-
-function emptyTable(t)
-	for k,v in pairs(t) do
-		t[k] = nil
-	end
-	return true
-end
-
-function emptyArray(t)
-	for i = 1,#t do
-		t[i] = nil
-	end
-	return true
-end
