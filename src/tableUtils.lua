@@ -6,6 +6,7 @@ local string = string
 local table = table
 local load = load
 local pcall = pcall
+local setmetatable = setmetatable
 
 -- Create the module table here
 local M = {}
@@ -16,7 +17,7 @@ else
 	_ENV = M		-- Lua 5.2+
 end
 
-_VERSION = "1.20.05.24"
+_VERSION = "1.20.07.18"
 
 
 -- Function to convert a table to a string
@@ -407,19 +408,19 @@ function emptyArray(t)
 	return true
 end
 
+local WEAKK = {__mode="k"}
+local WEAKV = {__mode="v"}
+
 -- Copy table t1 to t2 overwriting any common keys
 -- If full is true then copy is recursively going down into nested tables
 -- returns t2 and mapping of source to destination and destination to source tables
 function copyTable(t1,t2,full,map,tabDone)
 	map = map or {
-			s2d={
-				[t1]=t2
-			},
-			d2s={
-				[t2]=t1
-			}
-		}	-- s2d contains mapping of source table tables to destination tables
-			-- d2s contains mapping of destination table tables to source tables
+			s2d=setmetatable({},WEAKK),
+			d2s=setmetatable({},WEAKV)
+		}
+	map.s2d[t1] = t2		-- s2d contains mapping of source table tables to destination tables
+	map.d2s[t2] = t1		-- d2s contains mapping of destination table tables to source tables
 	tabDone = tabDone or {[t1]=t2}	-- To keep track of recursive tables
 	for k,v in pairs(t1) do
 		if type(v) == "number" or type(v) == "string" or type(v) == "boolean" or type(v) == "function" or type(v) == "thread" or type(v) == "userdata" then
@@ -600,6 +601,7 @@ function patch(t,diff)
 			t[k] = v
 		end
 	end
+	-- Any other table keys in diff are the child tables in t so go through them and patch them
 	for k,v in pairs(diff) do
 		if k ~= t and type(k) == "table" and not tabDone[k] then
 			for k1,v1 in pairs(v) do
@@ -618,7 +620,7 @@ end
 -- Use the patch function the apply the patch
 -- map is the table that can provide mapping of any table in t2 to a table in t1 i.e. they can be considered the referring to the same table i.e. that table in t2 after the patch operation would be the same in value as the table in t1 that the map defines but its address will still be the address it was in t2. If there is no mapping for the table found then the same table is looked up at that level to match. But if there is a same table then the diff for that table is obviously 0
 
--- NOTE: a diff object is temporary and cannot be saved for a later session. To save it is better to serialize and save t1 and t2 using t2s functions
+-- NOTE: a diff object is temporary and cannot be saved for a later session(This is because of setnil being unique to a session). To save it is better to serialize and save t1 and t2 using t2s functions
 function diffTable(t1,t2,map,tabDone,diff)
 	map = map or {
 			[t2]=t1
