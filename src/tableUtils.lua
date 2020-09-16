@@ -395,7 +395,7 @@ function inArray(t1,v,equal)
 end
 
 function emptyTable(t)
-	for k,v in pairs(t) do
+	for k,_ in pairs(t) do
 		t[k] = nil
 	end
 	return true
@@ -579,7 +579,7 @@ function compareTables(t1,t2,traversing)
 		end
 	end
 	-- Check if any keys left in t2
-	for k,v in pairs(t2) do
+	for k,_ in pairs(t2) do
 		if not donet2[k] then
 			return false	-- extra stuff in t2
 		end
@@ -704,7 +704,7 @@ function diffTable(t1,t2,map,tabDone,diff)
 		end	--if type(v) ~= "table" then ends
 	end	-- for k,v in pairs(t2) do ends
 	-- Now to find extra stuff in t1 which should be removed
-	for k,v in pairs(t1) do
+	for k,_ in pairs(t1) do
 		if type(k) ~= "table" then
 			if t2[k] == nil then
 				diff[t1][k] = setnil
