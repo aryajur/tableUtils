@@ -17,7 +17,7 @@ else
 	_ENV = M		-- Lua 5.2+
 end
 
-_VERSION = "1.20.07.18"
+_VERSION = "1.21.02.02"
 
 
 -- Function to convert a table to a string
@@ -406,6 +406,33 @@ function emptyArray(t)
 		t[i] = nil
 	end
 	return true
+end
+
+-- Function to check whether table t is recursive
+function isRecursive(t,index)
+	index = index or {[t]=true}
+	index[t] = true
+	for k,v in pairs(t) do
+		if type(k) == "table" then
+			if index[k] then
+				return true
+			else
+				if isRecursive(k,index) then
+					return true
+				end				
+			end
+		end
+		if type(v) == "table" then
+			if index[v] then
+				return true
+			else
+				if isRecursive(v,index) then
+					return true
+				end
+			end
+		end
+	end
+	return false
 end
 
 local WEAKK = {__mode="k"}
