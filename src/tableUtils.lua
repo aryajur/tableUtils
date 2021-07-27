@@ -17,7 +17,7 @@ else
 	_ENV = M		-- Lua 5.2+
 end
 
-_VERSION = "1.21.02.02"
+_VERSION = "1.21.07.27"
 
 
 -- Function to convert a table to a string
@@ -321,15 +321,20 @@ end
 
 -- Function to convert a string containing a lua table to a lua table object
 function s2t(str)
-  local fileFunc
+	local fileFunc,msg,err
 	local safeenv = {}
-  if loadstring and setfenv then
-    fileFunc = loadstring("t="..str)
-    setfenv(f,safeenv)
-  else
-    fileFunc = load("t="..str,"stringToTable","t",safeenv)
-  end
-	local err,msg = pcall(fileFunc)
+	if loadstring and setfenv then
+		fileFunc,msg = loadstring("t="..str)
+		if fileFunc then
+			setfenv(fileFunc,safeenv)
+		end
+	else
+		fileFunc,msg = load("t="..str,"stringToTable","t",safeenv)
+	end
+	if not fileFunc then
+		return nil,msg
+	end
+	err,msg = pcall(fileFunc)
 	if not err or not safeenv.t or type(safeenv.t) ~= "table" then
 		return nil,msg or type(safeenv.t) ~= "table" and "Not a table"
 	end
@@ -338,15 +343,20 @@ end
 
 -- Function to convert a string containing a lua recursive table (from t2sr) to a lua table object
 function s2tr(str)
-  local fileFunc
+	local fileFunc,err,msg
 	local safeenv = {}
-  if loadstring and setfenv then
-    fileFunc = loadstring(str)
-    setfenv(f,safeenv)
-  else
-    fileFunc = load(str,"stringToTable","t",safeenv)
-  end
-	local err,msg = pcall(fileFunc)
+	if loadstring and setfenv then
+		fileFunc,msg = loadstring(str)
+		if fileFunc then
+			setfenv(fileFunc,safeenv)
+		end
+	else
+		fileFunc,msg = load(str,"stringToTable","t",safeenv)
+	end
+	if not fileFunc then
+		return nil, msg
+	end
+	err,msg = pcall(fileFunc)
 	if not err or not safeenv.t0 or type(safeenv.t0) ~= "table" then
 		return nil,msg or type(safeenv.t0) ~= "table" and "Not a table"
 	end
