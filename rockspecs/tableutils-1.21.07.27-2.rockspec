@@ -1,5 +1,5 @@
 package = "tableUtils"
-version = "1.21.07.27-1"
+version = "1.21.07.27-2"
 source = {
 	url = "git://github.com/aryajur/tableUtils.git",
 	tag = "1.21.07.27"
@@ -17,9 +17,7 @@ dependencies = {
 }
 build = {
 	type = "builtin",
-    install = {
-        bin = {
-            tableUtils = "src/tableUtils.lua",
-        },
+    modules = {
+		tableUtils = "src/tableUtils.lua",
     },
 }
