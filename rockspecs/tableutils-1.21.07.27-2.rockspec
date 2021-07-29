@@ -18,6 +18,6 @@ dependencies = {
 build = {
 	type = "builtin",
     modules = {
-		tableUtils = "src/tableUtils.lua",
+		tableUtils = "../src/tableUtils.lua",
     },
 }
