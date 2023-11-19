@@ -17,7 +17,7 @@ else
 	_ENV = M		-- Lua 5.2+
 end
 
-_VERSION = "1.21.07.27"
+_VERSION = "1.23.07.16"
 
 
 -- Function to convert a table to a string
@@ -88,7 +88,18 @@ function t2s(t)
 						--result[#result + 1] = "\""..tostring(v).."\",\n"..string.rep("\t",levels+1)
 						result[#result + 1] = "\""..tostring(v).."\","	-- non pretty version
 					end
-				elseif type(v) == "number" or type(v) == "boolean" then
+				elseif type(v) == "number" then 
+					-- Check if this is infinite number
+					if v < 0 and v == -1/0 then
+						-- It is -inf
+						result[#result + 1] = "-1/0,"
+					elseif v > 0 and v == 1/0 then
+						-- It is +inf
+						result[#result + 1] = "1/0,"
+					else
+						result[#result + 1] = tostring(v)..","	-- non pretty version
+					end
+				elseif type(v) == "boolean" then		
 					--result[#result + 1] = tostring(v)..",\n"..string.rep("\t",levels+1)
 					result[#result + 1] = tostring(v)..","	-- non pretty version
 				else
@@ -176,7 +187,18 @@ function t2spp(t)
 						result[#result + 1] = "\""..tostring(v).."\",\n"..string.rep("\t",levels+1)	-- For pretty printing
 						--result[#result + 1] = "\""..tostring(v).."\","	-- non pretty version
 					end
-				elseif type(v) == "number" or type(v) == "boolean" then
+				elseif type(v) == "number" then 
+					-- Check if this is infinite number
+					if v < 0 and v == -1/0 then
+						-- It is -inf
+						result[#result + 1] = "-1/0,\n"..string.rep("\t",levels+1)
+					elseif v > 0 and v == 1/0 then
+						-- It is +inf
+						result[#result + 1] = "1/0,\n"..string.rep("\t",levels+1)
+					else
+						result[#result + 1] = tostring(v)..",\n"..string.rep("\t",levels+1)	-- non pretty version
+					end
+				elseif type(v) == "boolean" then
 					result[#result + 1] = tostring(v)..",\n"..string.rep("\t",levels+1)	-- For pretty printing
 					--result[#result + 1] = tostring(v)..","	-- non pretty version
 				else
@@ -302,8 +324,18 @@ function t2sr(t)
 						tabIndex[v] = rL[rL.cL].tabIndex
 					end
 				elseif type(v) == 'number' then
+					-- Check if this is infinite number
+					if v < 0 and v == -1/0 then
+						-- It is -inf
+						result[#result + 1] = "-1/0"
+					elseif v > 0 and v == 1/0 then
+						-- It is +inf
+						result[#result + 1] = "1/0"
+					else
+						result[#result + 1] = tostring(v)
+					end
 					--rL[rL.cL].str = rL[rL.cL].str..tostring(v)
-					result[#result + 1] = tostring(v)
+					--result[#result + 1] = tostring(v)
 				elseif type(v) == 'boolean' then
 					--rL[rL.cL].str = rL[rL.cL].str..tostring(v)
 					result[#result + 1] = tostring(v)
@@ -392,11 +424,13 @@ end
 
 -- Function to check whether value v is in array t1
 -- if equal is a given function then equal is called with a value from the table and the value to compare. If it returns true then the values are considered equal
-function inArray(t1,v,equal)
+function inArray(t1,v,equal,st,stp)
 	equal = (type(equal)=="function" and equal) or function(v1,v2)
 		return v1==v2
 	end
-	for i = 1,#t1 do
+	st = st or 1
+	stp = stp or #t1
+	for i = st,stp do
 		if equal(t1[i],v) then
 			return i		-- Value v found in t1 at ith location
 		end
